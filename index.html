@@ -20,15 +20,11 @@
       text-transform: uppercase; letter-spacing: 1.5px;
       color: #aaa; margin-bottom: 12px;
     }
-
-    /* Streak */
     .streak-num { font-size: 52px; font-weight: 800; line-height: 1; }
     .streak-unit { font-size: 16px; font-weight: 400; color: #aaa; margin-left: 4px; }
     .streak-sub { font-size: 12px; color: #bbb; margin-top: 6px; }
     .total { font-size: 12px; color: #aaa; margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; }
     .total strong { color: #111; }
-
-    /* Today ring */
     .ring-card { display: flex; flex-direction: column; align-items: center; }
     .ring-wrap { position: relative; width: 108px; height: 108px; }
     .ring-center {
@@ -38,153 +34,160 @@
     }
     .ring-num { font-size: 26px; font-weight: 800; line-height: 1; }
     .ring-goal { font-size: 11px; color: #bbb; margin-top: 2px; }
-
-    /* Status */
     .legend { display: flex; flex-direction: column; gap: 10px; }
     .legend-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
     .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     .lname { color: #666; flex: 1; }
     .lval { font-weight: 700; }
-
-    /* Line chart */
     .chart-card { padding: 18px 20px 14px; }
+    .updated { font-size: 10px; color: #ccc; text-align: right; margin-top: 10px; }
+    .loading { color: #bbb; font-size: 13px; padding: 40px; text-align: center; }
   </style>
 </head>
 <body>
 
-  <div class="top">
+  <div id="app" class="loading">Chargement…</div>
 
-    <!-- Streak -->
-    <div class="card">
-      <div class="label">🔥 Série</div>
-      <div>
-        <span class="streak-num">3</span><span class="streak-unit">jours</span>
-      </div>
-      <div class="streak-sub">objectif : 10 / jour</div>
-      <div class="total"><strong>58</strong> candidatures au total</div>
-    </div>
-
-    <!-- Today ring -->
-    <div class="card ring-card">
-      <div class="label">Aujourd'hui</div>
-      <div class="ring-wrap">
-        <canvas id="todayChart"></canvas>
-        <div class="ring-center">
-          <div class="ring-num">6</div>
-          <div class="ring-goal">/ 10</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Status -->
-    <div class="card">
-      <div class="label">Statuts</div>
-      <div class="legend">
-        <div class="legend-row">
-          <div class="dot" style="background:#22c55e"></div>
-          <span class="lname">Appliqué</span>
-          <span class="lval">45</span>
-        </div>
-        <div class="legend-row">
-          <div class="dot" style="background:#f59e0b"></div>
-          <span class="lname">Entretien</span>
-          <span class="lval">8</span>
-        </div>
-        <div class="legend-row">
-          <div class="dot" style="background:#ef4444"></div>
-          <span class="lname">Refusé</span>
-          <span class="lval">5</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Line chart -->
-  <div class="card chart-card">
-    <div class="label">7 derniers jours</div>
-    <canvas id="lineChart" height="75"></canvas>
-  </div>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script>
-    // Today ring
-    const todayCount = 6, dailyGoal = 10;
-    const ringColor = todayCount >= dailyGoal ? '#22c55e' : todayCount >= 5 ? '#f59e0b' : '#111';
+    fetch('data.json?t=' + Date.now())
+      .then(r => r.json())
+      .then(d => render(d))
+      .catch(() => {
+        document.getElementById('app').textContent = 'Impossible de charger les données.';
+      });
 
-    new Chart(document.getElementById('todayChart'), {
-      type: 'doughnut',
-      data: {
-        datasets: [{
-          data: [todayCount, Math.max(0, dailyGoal - todayCount)],
-          backgroundColor: [ringColor, '#eaeaea'],
-          borderWidth: 0,
-        }]
-      },
-      options: {
-        cutout: '78%',
-        plugins: { legend: { display: false }, tooltip: { enabled: false } }
-      }
-    });
+    function render(d) {
+      const goal = d.goal || 10;
+      const todayCount = d.today || 0;
+      const ringColor = todayCount >= goal ? '#22c55e' : todayCount >= goal / 2 ? '#f59e0b' : '#111';
 
-    // Line chart
-    const labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Auj'];
-    const counts = [8, 10, 10, 4, 10, 10, 6];
-    const pointColors = counts.map(v => v >= 10 ? '#22c55e' : v >= 5 ? '#f59e0b' : '#ef4444');
+      document.getElementById('app').innerHTML = `
+        <div class="top">
+          <div class="card">
+            <div class="label">🔥 Série</div>
+            <div>
+              <span class="streak-num">${d.streak}</span><span class="streak-unit">jours</span>
+            </div>
+            <div class="streak-sub">objectif : ${goal} / jour</div>
+            <div class="total"><strong>${d.total}</strong> candidatures au total</div>
+          </div>
 
-    new Chart(document.getElementById('lineChart'), {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Candidatures',
-            data: counts,
-            borderColor: '#111',
-            backgroundColor: 'rgba(0,0,0,0.04)',
-            fill: true,
-            tension: 0.4,
-            pointBackgroundColor: pointColors,
-            pointBorderColor: '#fff',
-            pointBorderWidth: 2,
-            pointRadius: 6,
+          <div class="card ring-card">
+            <div class="label">Aujourd'hui</div>
+            <div class="ring-wrap">
+              <canvas id="todayChart"></canvas>
+              <div class="ring-center">
+                <div class="ring-num">${todayCount}</div>
+                <div class="ring-goal">/ ${goal}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="label">Statuts</div>
+            <div class="legend">
+              <div class="legend-row">
+                <div class="dot" style="background:#22c55e"></div>
+                <span class="lname">Appliqué</span>
+                <span class="lval">${d.statuses['Appliqué'] || 0}</span>
+              </div>
+              <div class="legend-row">
+                <div class="dot" style="background:#f59e0b"></div>
+                <span class="lname">Entretien</span>
+                <span class="lval">${d.statuses['Entretien'] || 0}</span>
+              </div>
+              <div class="legend-row">
+                <div class="dot" style="background:#ef4444"></div>
+                <span class="lname">Refusé</span>
+                <span class="lval">${d.statuses['Refusé'] || 0}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card chart-card">
+          <div class="label">7 derniers jours</div>
+          <canvas id="lineChart" height="75"></canvas>
+        </div>
+
+        <div class="updated">Mis à jour le ${d.updated_at}</div>
+      `;
+
+      // Today ring
+      new Chart(document.getElementById('todayChart'), {
+        type: 'doughnut',
+        data: {
+          datasets: [{
+            data: [todayCount, Math.max(0, goal - todayCount)],
+            backgroundColor: [ringColor, '#eaeaea'],
+            borderWidth: 0,
+          }]
+        },
+        options: {
+          cutout: '78%',
+          plugins: { legend: { display: false }, tooltip: { enabled: false } }
+        }
+      });
+
+      // Line chart
+      const pointColors = d.last7.map(v => v >= goal ? '#22c55e' : v >= goal / 2 ? '#f59e0b' : '#ef4444');
+      new Chart(document.getElementById('lineChart'), {
+        type: 'line',
+        data: {
+          labels: d.labels,
+          datasets: [
+            {
+              label: 'Candidatures',
+              data: d.last7,
+              borderColor: '#111',
+              backgroundColor: 'rgba(0,0,0,0.04)',
+              fill: true,
+              tension: 0.4,
+              pointBackgroundColor: pointColors,
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointRadius: 6,
+            },
+            {
+              label: 'Objectif',
+              data: Array(7).fill(goal),
+              borderColor: '#ddd',
+              borderDash: [5, 4],
+              borderWidth: 1.5,
+              pointRadius: 0,
+              fill: false,
+            }
+          ]
+        },
+        options: {
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => ctx.datasetIndex === 0
+                  ? ` ${ctx.raw} candidatures`
+                  : ` objectif (${goal})`
+              }
+            }
           },
-          {
-            label: 'Objectif',
-            data: Array(7).fill(dailyGoal),
-            borderColor: '#ddd',
-            borderDash: [5, 4],
-            borderWidth: 1.5,
-            pointRadius: 0,
-            fill: false,
-          }
-        ]
-      },
-      options: {
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: ctx => ctx.datasetIndex === 0
-                ? ` ${ctx.raw} candidatures`
-                : ' objectif (10)'
+          scales: {
+            y: {
+              min: 0, max: Math.max(goal + 3, Math.max(...d.last7) + 2),
+              ticks: { stepSize: 2, color: '#ccc', font: { size: 11 } },
+              grid: { color: '#f2f2f2' },
+              border: { display: false }
+            },
+            x: {
+              ticks: { color: '#bbb', font: { size: 11 } },
+              grid: { display: false },
+              border: { display: false }
             }
           }
-        },
-        scales: {
-          y: {
-            min: 0, max: 13,
-            ticks: { stepSize: 2, color: '#ccc', font: { size: 11 } },
-            grid: { color: '#f2f2f2' },
-            border: { display: false }
-          },
-          x: {
-            ticks: { color: '#bbb', font: { size: 11 } },
-            grid: { display: false },
-            border: { display: false }
-          }
         }
-      }
-    });
+      });
+    }
   </script>
 </body>
 </html>
